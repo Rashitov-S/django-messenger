@@ -20,7 +20,7 @@ TRUE_VALUES = (
 
 DEBUG = os.getenv("DEBUG")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -123,7 +123,7 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 
-# STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = BASE_DIR / "static"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static_dev",
