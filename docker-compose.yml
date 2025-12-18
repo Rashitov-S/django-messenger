@@ -5,7 +5,8 @@ services:
     env_file: .env
     restart: always
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - static_volume:/app/cybersec/static
     command: >
@@ -22,6 +23,11 @@ services:
     env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   caddy:
     image: caddy:latest
