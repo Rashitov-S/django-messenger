@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% load tz %}
+{% load static %}
+{% block title %}
+Astrocore E2EE
+{% endblock %}
+{% block content %}
+<div class="chat-page py-4">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-warning text-center mb-3">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    <div class="d-flex border rounded overflow-hidden shadow-sm" style="height: 80vh">
+
+        <div class="chats-section flex-shrink-0 bg-white"
+             style="width: 25%; border-right: 1px solid #dee2e6; overflow-y: auto;" id="chats-section">
+            <div class="p-3 fw-semibold border-bottom">
+                💬 Чаты
+            </div>
+
+            {% for chat in chats %}
+            <a href="{% url 'chats:chat' chat_id=chat.id %}" class="text-decoration-none text-dark">
+                <div class="chat-block border-bottom">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="fw-semibold text-truncate">{{ chat.title }}</div>
+                        {% timezone "Europe/Moscow" %}
+                        <small class="text-muted">{{ chat.last_message.created_at|date:"H:i" }}</small>
+                        {% endtimezone %}
+                    </div>
+<div class="text-muted small text-truncate" data-content="{{ chat.last_message_b64 }}">
+        Нет сообщений
+    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        <div class="selected-chat-header flex-grow-1 bg-light d-flex flex-column"
+             style="position: relative; overflow: hidden;">
+            <div class="p-3 fw-semibold border-bottom">
+                {{ selected_chat.title|default:"Выберите чат" }}
+            </div>
+
+            <div class="p-3 flex-grow-1 overflow-auto">
+                {% if selected_chat %}
+                <div class="selected-chat-section">
+                </div>
+                {% else %}
+                <p class="text-muted">Выберите чат слева, чтобы начать переписку.</p>
+                {% endif %}
+            </div>
+
+            {% if selected_chat %}
+            <div class="chat-input-section bg-white border-top p-2 d-flex gap-2">
+                <input type="text" class="form-control" placeholder="Введите сообщение...">
+                <button class="btn btn-dark send-button">Отправить</button>
+            </div>
+            {% endif %}
+        </div>
+
+
+    </div>
+</div>
+<script>
+    const CURRENT_USER_ID = {{request.user.id}};
+    const SELECTED_CHAT_ID = {{selected_chat.id|default:"null"}};
+</script>
+<script src="{% static 'js/chat_encryption.js' %}"></script>
+<script src="{% static 'js/keygen.js' %}"></script>
+<script>
+    function formatTime(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString("ru-RU", {hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow"});
+    }
+
+    async function loadMessages(chatAESKey) {
+        if (!SELECTED_CHAT_ID) return;
+        if (!chatAESKey) {
+        console.error("AES ключ не установлен");
+        return;
+    }
+        try {
+            const selected_chat_section = document.querySelector('.selected-chat-section');
+            const response = await fetch(`/chat/${SELECTED_CHAT_ID}/messages/`, {
+                method: "GET",
+                credentials: "same-origin"
+            });
+            if (!response.ok) throw new Error("Ошибка загрузки сообщений");
+
+            const data = await response.json();
+
+            selected_chat_section.innerHTML = "";
+
+            for (const msg of data.messages) {
+            let decryptedContent = msg.content;
+
+            try {
+                if (decryptedContent) {
+                    decryptedContent = await decryptMessageAES(chatAESKey, decryptedContent);
+                } else {
+                    decryptedContent = "[пустое сообщение]";
+                }
+            } catch (err) {
+                console.error("Ошибка расшифровки сообщения:", err);
+                decryptedContent = "[не удалось расшифровать]";
+            }
+
+            renderMessage({ ...msg, content: decryptedContent });
+        }
+
+            scrollToBottom();
+        } catch (err) {
+            console.error("Не удалось загрузить сообщения:", err);
+        }
+    }
+
+
+    function renderMessage(message) {
+        const selected_chat_section = document.querySelector('.selected-chat-section');
+        if (!selected_chat_section) return;
+        let messageElement = createMessageElement(message);
+        selected_chat_section.appendChild(messageElement);
+
+    }
+
+    function createMessageElement(message) {
+        const wrapper = document.createElement("div");
+        wrapper.classList.add("message-block", "mb-3", "d-flex", "flex-column");
+
+        const bubble = document.createElement("div");
+
+        const isMe = message.from_user === CURRENT_USER_ID;
+
+        if (isMe) {
+            bubble.className =
+                "bg-secondary text-white rounded border shadow-sm p-3 align-self-end";
+
+            bubble.style.maxWidth = "60%";
+            bubble.style.wordWrap = "break-word";
+            bubble.style.overflowWrap = "break-word";
+            bubble.style.wordBreak = "break-word";
+        } else {
+            bubble.className =
+                "bg-light text-dark rounded border shadow-sm p-3 align-self-start";
+
+            bubble.style.maxWidth = "60%";
+            bubble.style.wordWrap = "break-word";
+            bubble.style.overflowWrap = "break-word";
+            bubble.style.wordBreak = "break-word";
+        }
+
+        const username = document.createElement("div");
+        username.className = "fw-bold mb-1";
+
+        if (isMe) {
+            username.classList.add("d-none");
+        }
+
+        username.textContent = message.from_user_username;
+
+        const content = document.createElement("div");
+        content.textContent = message.content;
+
+        const time = document.createElement("small");
+        time.className = isMe
+            ? "text-white d-block mt-1 text-end"
+            : "text-muted d-block mt-1";
+
+        time.textContent = formatTime(message.created_at);
+
+        bubble.appendChild(username);
+        bubble.appendChild(content);
+        bubble.appendChild(time);
+        wrapper.appendChild(bubble);
+
+        return wrapper;
+    }
+
+    function scrollToBottom() {
+        const scrollContainer = document.querySelector('.flex-grow-1.overflow-auto');
+        if (scrollContainer) {
+            console.log("Scroll to bottom");
+            requestAnimationFrame(() => {
+                scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            });
+        }
+    }
+
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    const CURRENT_USER_ID = {{ request.user.id }};
+
+    if (!localStorage.getItem(privateKeyStorageKey(CURRENT_USER_ID))) {
+        await generateUserKeys(CURRENT_USER_ID);
+        console.log("Ключи пользователя сгенерированы и отправлены на сервер!");
+    } else {
+        console.log("Ключи пользователя уже есть в localStorage.");
+    }
+
+    const chatId = SELECTED_CHAT_ID;
+    if (!chatId) return;
+
+    let chatAESKey;
+
+    async function initChatAESKey() {
+        chatAESKey = await getMyChatAESKey(chatId, CURRENT_USER_ID);
+        console.log("AES ключ для чата установлен");
+        loadMessages(chatAESKey);
+        for (const el of document.querySelectorAll("[data-content]")) {
+        const b64 = el.dataset.content;
+        if (b64) {
+            try {
+                const decrypted = await decryptMessageAES(chatAESKey, b64);
+                el.textContent = decrypted;
+            } catch {
+                el.textContent = "[не удалось расшифровать]";
+            }
+        }
+
+    }
+    }
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsUrl = `${protocol}://${window.location.host}/ws/chat/${chatId}/`;
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = async () => {
+        try {
+            await initChatAESKey();
+            console.log("WS connected");
+        } catch (err) {
+            console.error("Ошибка инициализации AES ключа:", err);
+        }
+    };
+
+    socket.onmessage = async (event) => {
+        const data = JSON.parse(event.data);
+        let content = data.content;
+        if (!data.content) {
+            console.warn("Received empty message content", data);
+            return;
+        }
+
+        try {
+            content = await decryptMessageAES(chatAESKey, content);
+        } catch (err) {
+            console.error("Ошибка расшифровки сообщения:", err);
+            content = "[Не удалось расшифровать]";
+        }
+
+        const message = {
+            content,
+            from_user: data.from_user,
+            from_user_username: data.from_user_username,
+            created_at: data.created_at,
+            chat_id: data.chat_id,
+        };
+
+        const selected_chat_section = document.querySelector('.selected-chat-section');
+        if (!selected_chat_section) return;
+
+        renderMessage(message);
+        scrollToBottom();
+        updateChatList(message);
+    };
+
+    socket.onclose = () => console.log("WS disconnected");
+    socket.onerror = (err) => console.error("WS error:", err);
+
+ async function sendMessage(content) {
+    if (!chatAESKey) throw new Error("AES ключ не установлен");
+
+    try {
+        const encrypted = await encryptMessageAES(chatAESKey, content);
+        socket.send(JSON.stringify({ "message": encrypted }));
+    } catch (err) {
+        console.error("Ошибка шифрования сообщения:", err);
+    }
+}
+
+    const sendButton = document.querySelector(".send-button");
+    const inputField = document.querySelector(".chat-input-section input");
+
+    function sendMessageAndClear() {
+        const message = inputField.value.trim();
+        if (!message || message.length > 4096) return;
+
+        sendMessage(message);
+        inputField.value = "";
+    }
+
+    sendButton.addEventListener("click", sendMessageAndClear);
+    inputField.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            sendMessageAndClear();
+        }
+    });
+
+    function updateChatList(message) {
+        const chatsSection = document.getElementById("chats-section");
+        if (!chatsSection) return;
+
+        const chatBlock = chatsSection.querySelector(`a[href$="/chat/${message.chat_id}/"]`);
+        if (chatBlock) {
+            const contentDiv = chatBlock.querySelector(".text-muted.small");
+            contentDiv.textContent = message.content.length > 40 ? message.content.slice(0, 40) + "…" : message.content;
+
+            const timeDiv = chatBlock.querySelector("small.text-muted");
+            const date = new Date(message.created_at);
+            timeDiv.textContent = date.toLocaleTimeString("ru-RU", {
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZone: "Europe/Moscow"
+            });
+
+            const header = chatsSection.querySelector("div.fw-semibold.border-bottom");
+            if (header) {
+                chatsSection.insertBefore(chatBlock, header.nextSibling);
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

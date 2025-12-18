@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}
+Генерация ключей
+{% endblock %}
+{% block content %}
+<body>
+<h3>Создание чата с {{ other_user.username }}</h3>
+<p>Генерируем AES ключ и шифруем его для всех участников...</p>
+<script src="{% static 'js/chat_keygen.js' %}"></script>
+<script>
+    async function getUserPublicKey(username) {
+    const resp = await fetch(`/users/${username}/public_key/`, {credentials: "same-origin"});
+    if (!resp.ok) throw new Error("Не удалось получить публичный ключ пользователя " + username);
+    const data = await resp.json();
+    return data.public_key;
+}
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const otherUsername = "{{ other_user.username }}";
+        const myUsername = "{{ request.user.username }}";
+
+        const currentUserKey = await getUserPublicKey(otherUsername);
+        const otherUserKey = await getUserPublicKey(myUsername);
+
+        const participantsPublicKeys = {
+            "{{ other_user.id }}": currentUserKey,
+            "{{ current_user.id }}": otherUserKey
+        };
+
+        await createChatWithUser(otherUsername, participantsPublicKeys);
+
+    } catch (err) {
+        console.error(err);
+        alert("Ошибка при создании защищённого чата");
+    }
+});
+</script>
+{% endblock %}

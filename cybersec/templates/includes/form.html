@@ -1,0 +1,17 @@
+{% load widget_tweaks %}
+{% if form.non_field_errors %}
+{% include "includes/error.html" with errors=form.non_field_errors %}
+{% endif %}
+{% for field in form %}
+<div class="my-3">
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field|add_error_class:"is-invalid" }}
+    {% if field.errors %}
+    <div class="text-danger">
+        {% for error in field.errors %}
+        <div class="small d-block">{{ error }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endfor %}

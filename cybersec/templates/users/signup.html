@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}
+Регистрация
+{% endblock %}
+{% block content %}
+<div class="user">
+    <div class="border border-dark-subtle col-12 col-md-8 col-lg-6 col-xl-5 mx-auto my-5 p-3 p-sm-4 rounded-4">
+        <h1 class="text-center my-3 my-sm-4 fs-md-2">Зарегистрироваться</h1>
+        <form method="post">
+            {% csrf_token %}
+            {% include 'includes/form.html' with form=signup_form %}
+            <button class="btn btn-primary w-100 mt-3" type="submit">Отправить</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

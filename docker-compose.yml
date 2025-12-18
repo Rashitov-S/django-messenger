@@ -1,0 +1,50 @@
+services:
+  web:
+    build: .
+    container_name: django_web
+    env_file: .env
+    restart: always
+    depends_on:
+      - db
+    volumes:
+      - static_volume:/app/cybersec/static
+    command: >
+      /bin/sh -c "
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      daphne -b 0.0.0.0 -p 8000 cybersec.asgi:application
+      "
+    ports:
+      - "8000:8000"
+
+  db:
+    image: postgres:latest
+    container_name: postgres_db
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  caddy:
+    image: caddy:latest
+    container_name: caddy_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+      - static_volume:/app/cybersec/static
+    depends_on:
+      - web
+
+
+volumes:
+  postgres_data:
+  static_volume:
+  caddy_data:
+  caddy_config:
+

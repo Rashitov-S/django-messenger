@@ -1,0 +1,13 @@
+messenger.astrocore.cloud {
+    handle_path /static/* {
+        root * /app/cybersec/static
+        file_server
+    }
+
+    handle {
+        reverse_proxy web:8000 {
+            header_up X-Forwarded-Proto {scheme}
+            header_up Host {host}
+        }
+    }
+}
