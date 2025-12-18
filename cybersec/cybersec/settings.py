@@ -18,7 +18,7 @@ TRUE_VALUES = (
     "y",
 )
 
-DEBUG = os.getenv("DEBUG")
+DEBUG = os.getenv("DEBUG") in TRUE_VALUES
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
@@ -90,6 +90,13 @@ DATABASES = {
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
     },
 }
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://messenger.astrocore.cloud",
+]
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 
 AUTH_PASSWORD_VALIDATORS = [
     {
