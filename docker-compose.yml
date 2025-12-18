@@ -14,8 +14,8 @@ services:
       python manage.py collectstatic --noinput &&
       daphne -b 0.0.0.0 -p 8000 cybersec.asgi:application
       "
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
 
   db:
     image: postgres:latest
@@ -23,8 +23,6 @@ services:
     env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
 
   caddy:
     image: caddy:latest
