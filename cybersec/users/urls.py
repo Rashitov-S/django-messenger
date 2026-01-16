@@ -22,7 +22,5 @@ urlpatterns = [
         ),
         name="logout",
     ),
-    path("save_public_key/", users.views.save_public_key, name="save-public-key"),
-    path("<str:username>/public_key/", users.views.get_public_key, name="get-public-key"),
 
 ]

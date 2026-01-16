@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "users.apps.UsersConfig",
     "chat.apps.ChatConfig",
+    "crypto.apps.CryptoConfig",
     "widget_tweaks",
     "channels",
 ]

@@ -1,6 +1,8 @@
 import django.urls
 from django.contrib import admin
 
+from cybersec.api import api
+
 urlpatterns = [
     django.urls.path(
         "users/",
@@ -12,4 +14,5 @@ urlpatterns = [
     ),
 
     django.urls.path("admin/", admin.site.urls),
+    django.urls.path("api/", api.urls, name="api"),
 ]

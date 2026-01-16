@@ -1,0 +1,56 @@
+import {buildPreKeyBundlePayload, fetchPreKeyBundle} from "./api.js";
+import {signalStore} from "./signalStore.js";
+import {toBase64} from "./utils.js";
+
+
+export async function ensureSession(recipientId) {
+    const sessionExists = await hasSession(recipientId);
+
+
+            const preKeyBundle = await fetchPreKeyBundle(recipientId);
+        const preKeyPayload = buildPreKeyBundlePayload(preKeyBundle);
+                const valid = await libsignal.Curve.verifySignature(
+            preKeyPayload.identityKey,
+            preKeyPayload.signedPreKey.publicKey,
+            preKeyPayload.signedPreKey.signature
+        );
+
+        console.log("SignedPreKey signature valid?", valid);
+
+    if (!sessionExists) {
+        const preKeyBundle = await fetchPreKeyBundle(recipientId);
+        const preKeyPayload = buildPreKeyBundlePayload(preKeyBundle);
+
+        const address = new libsignal.SignalProtocolAddress(recipientId, 1);
+        const builder = new libsignal.SessionBuilder(signalStore, address);
+        await builder.processPreKey(preKeyPayload);
+
+
+        console.log("Session created for", recipientId);
+       const spk = await signalStore.loadSignedPreKey(keyId);
+        console.log("Client SPK pub:", toBase64(spk.pubKey));
+
+    } else {
+        console.log("Session already exists for", recipientId);
+    }
+}
+
+export async function deleteSession(senderId) {
+    try {
+        const address = new libsignal.SignalProtocolAddress(senderId, 1);
+
+        await signalStore.removeSession(address.toString());
+        console.log(`Session deleted for ${senderId}`);
+
+
+    } catch (err) {
+        console.error(`Failed to delete session for ${senderId}:`, err);
+    }
+}
+
+
+async function hasSession(recipientId) {
+    const address = new libsignal.SignalProtocolAddress(recipientId, 1);
+    const session = await signalStore.loadSession(address.toString());
+    return !!session;
+}

@@ -1,0 +1,29 @@
+header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+}
+
+.chat-page {
+    padding-top: 55px;
+}
+
+.chat-page .row {
+    height: calc(100vh - 55px);
+}
+
+#column-left,
+#column-right {
+    height: 100%;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.message-input {
+    resize: none;
+    overflow-y: auto;
+    max-height: 240px;
+    line-height: 1.4;
+}

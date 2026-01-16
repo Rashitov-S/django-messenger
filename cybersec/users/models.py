@@ -32,7 +32,6 @@ class User(
     django.contrib.auth.models.AbstractBaseUser,
     django.contrib.auth.models.PermissionsMixin,
 ):
-    public_key = django.db.models.BinaryField(null=True, blank=True)
 
     username = django.db.models.CharField(
         max_length=32,
