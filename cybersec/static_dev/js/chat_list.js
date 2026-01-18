@@ -10,13 +10,31 @@ export function initChatList(elementId) {
     chatListEl = document.getElementById(elementId);
 }
 
-export function renderChat(chat) {
-    console.log("рендерю чат", chat);
+export async function renderChat(chat) {
     const li = document.createElement("li");
     li.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3 btn rounded-0 border-0 border-bottom";
     li.dataset.chatId = chat.id;
 
-    li.dataset.lastMessageId = chat.last_message_id;
+    let lastMessageText = "Нет сообщений";
+    let lastMessageTime = "";
+    let lastMessageStatus = "";
+
+    if (chat.last_message) {
+        li.dataset.lastMessageId = chat.last_message.id;
+
+        const last_msg = await signalStore.loadLocalMessage(chat.last_message);
+        if (last_msg?.plaintext) {
+            chat.last_message.plaintext = last_msg.plaintext;
+        } else {
+            chat.last_message = await decryptMessage(chat.last_message);
+        }
+
+        lastMessageText = chat.last_message.plaintext || lastMessageText;
+        lastMessageTime = chat.last_message.created_at
+            ? new Date(chat.last_message.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+            : "";
+        lastMessageStatus = chat.last_message.delivery_status || "";
+    }
 
     let chatName = chat.name;
     if (chat.type === "private") {
@@ -26,20 +44,17 @@ export function renderChat(chat) {
 
     const unread = chat.unread_count || 0;
 
-
     li.innerHTML = `
     <div class="d-flex flex-column text-truncate">
         <strong class="text-truncate">${chatName}</strong>
         <small class="text-muted text-truncate chat-preview">
-            ${chat.last_message || "Нет сообщений"}
+            ${lastMessageText}
         </small>
     </div>
 
     <div class="ms-2 d-flex flex-column align-items-end text-nowrap">
         <small class="text-muted chat-time">
-            ${chat.last_message_at
-        ? new Date(chat.last_message_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
-        : ""}
+            ${lastMessageTime}
         </small>
 
         ${unread > 0 ? `
@@ -49,9 +64,9 @@ export function renderChat(chat) {
             </span>
         ` : ""}
 
-        ${chat.delivery_status === "read"
+        ${lastMessageStatus === "read"
         ? '<i class="bi bi-check2-all fs-5 chat-status"></i>'
-        : (chat.delivery_status === "delivered"
+        : (lastMessageStatus === "delivered"
             ? '<i class="bi bi-check2 fs-5 chat-status"></i>'
             : '<i class="chat-status"></i>')}
     </div>
@@ -70,9 +85,9 @@ export async function loadChats() {
 
 
     chatListEl.innerHTML = "";
-    chats.forEach(chat => {
-        chatListEl.appendChild(renderChat(chat));
-    });
+    for (const chat of chats) {
+        chatListEl.appendChild(await renderChat(chat));
+    }
 }
 
 export function updateChatPreview(chat_id, message) {
@@ -84,8 +99,9 @@ export function updateChatPreview(chat_id, message) {
 
     if (!previewEl || !timeEl) return;
 
-    previewEl.textContent = message.plaintext;
-
+    if (!(message.sender.id === CURRENT_USER_ID && (message.delivery_status === "read" || message.delivery_status === "delivered"))) {
+        previewEl.textContent = message.plaintext;
+    }
     chatEl.dataset.lastMessageId = message.id;
 
     timeEl.textContent = new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
@@ -121,15 +137,14 @@ export function getChatElement(chat_id) {
 }
 
 
-function addChatToList(chat) {
+async function addChatToList(chat) {
     const existing = chatListEl.querySelector(`[data-chat-id="${chat.id}"]`);
     if (existing) {
         return;
     }
 
-    const li = renderChat(chat);
+    const li = await renderChat(chat);
     chatListEl.prepend(li);
-    console.log("проверка", chat);
 }
 
 function incrementUnread(chatEl) {
@@ -183,23 +198,19 @@ export async function handleNewMessage(chat_id, msg) {
         return;
     }
 
-    console.log(msg)
-    let encrypted = {
-        type: msg.signal_type,
-        body: msg.ciphertext,
-    }
-
     if (msg.sender.id !== CURRENT_USER_ID) {
         try {
             await ensureSession(msg.sender.id);
 
-            msg.plaintext = await decryptMessage(msg.sender.id, encrypted);
+            msg.plaintext = await decryptMessage(msg);
 
         } catch (e) {
             throw e;
         }
-
+    } else {
+        await signalStore.updateMessageByLocalId(msg);
     }
+
 
     updateExistingChat(chatEl, chat_id, msg);
     moveChatToTop(chat_id);

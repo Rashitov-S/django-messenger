@@ -98,13 +98,13 @@ export class SignalProtocolStore {
     }
 
     async saveIdentity(address, identityKey) {
-        const existing = await this.backend.get(`identity${address}`);
-        await this.backend.set(`identity${address}`, identityKey);
+        const existing = await this.backend.get(`identityKey${address}`);
+        await this.backend.set(`identityKey${address}`, identityKey);
         return existing !== undefined;
     }
 
     async isTrustedIdentity(address, identityKey, direction) {
-        const trusted = await this.backend.get(`identity${address}`);
+        const trusted = await this.backend.get(`identityKey${address}`);
         if (!trusted) return true;
 
         if (trusted.equals) return trusted.equals(identityKey);
@@ -115,31 +115,31 @@ export class SignalProtocolStore {
     }
 
     async loadPreKey(keyId) {
-        return await this.backend.get(`prekey${keyId}`);
+        return await this.backend.get(`25519KeypreKey${keyId}`);
     }
 
     async storePreKey(keyId, keyPair) {
-        await this.backend.set(`prekey${keyId}`, keyPair);
+        await this.backend.set(`25519KeypreKey${keyId}`, keyPair);
     }
 
     async removePreKey(keyId) {
-        await this.backend.remove(`prekey${keyId}`);
+        await this.backend.remove(`25519KeypreKey${keyId}`);
     }
 
 
     async loadSignedPreKey(keyId) {
-        return await this.backend.get(`signedprekey${keyId}`);
+        return await this.backend.get(`25519KeysignedKey${keyId}`);
     }
 
     async storeSignedPreKey(keyId, keyPair, signature) {
-        await this.backend.set(`signedprekey${keyId}`, keyPair);
+        await this.backend.set(`25519KeysignedKey${keyId}`, keyPair);
 
 
         await this.backend.set(`signedprekey_signature${keyId}`, signature);
     }
 
     async removeSignedPreKey(keyId) {
-        await this.backend.remove(`signedprekey${keyId}`);
+        await this.backend.remove(`25519KeysignedKey${keyId}`);
     }
 
 
@@ -165,6 +165,33 @@ export class SignalProtocolStore {
             }
         }
     }
+
+    async loadLocalMessage(msg) {
+        return await this.backend.get(`msg${msg.id}`);
+    }
+    async saveLocalMessage(msg) {
+        return await this.backend.set(`msg${msg.id}`, msg)
+    }
+
+    async updateMessageByLocalId(serverMsg) {
+    const localKey = `msg${serverMsg.client_id}`;
+    const serverKey = `msg${serverMsg.id}`;
+
+    const localMessage = await this.backend.get(localKey);
+    if (!localMessage) return;
+
+    const updatedMessage = {
+        ...localMessage,
+        id: serverMsg.id,
+        delivery_status: "delivered",
+        created_at: serverMsg.created_at ?? localMessage.created_at
+    };
+
+    await this.backend.set(serverKey, updatedMessage);
+
+    await this.backend.remove(localKey);
+}
+
 
     _bufferEqual(buf1, buf2) {
         if (buf1.byteLength !== buf2.byteLength) return false;

@@ -30,17 +30,17 @@ def get_user_chats(request):
         last_meta = user_chat.messages.order_by("-created_at").first()
 
         if last_meta:
-            last_message_b64 = base64.b64encode(last_meta.signal_message.ciphertext).decode()
-            last_message_at = last_meta.created_at.isoformat()
-            last_message_sender = last_meta.sender.username
-            last_message_id = last_meta.id
-            delivery_status = last_meta.delivery_status(user.id)
+            last_message = {
+                "id": last_meta.id,
+                "sender": users.schemas.UserSchema.from_orm(last_meta.sender),
+                "ciphertext": base64.b64encode(last_meta.signal_message.ciphertext).decode(),
+                "created_at": last_meta.created_at.isoformat(),
+                "delivery_status": last_meta.delivery_status(user.id),
+                "is_read": last_meta.is_read,
+                "signal_type": last_meta.signal_message.signal_type,
+            }
         else:
-            last_message_b64 = None
-            last_message_at = None
-            last_message_sender = None
-            last_message_id = None
-            delivery_status = None
+            last_message = None
 
         chatlist.append(
             chat.schemas.ChatPreviewSchema(
@@ -48,11 +48,7 @@ def get_user_chats(request):
                 type=user_chat.type,
                 name=user_chat.name,
                 members=members,
-                last_message=last_message_b64,
-                last_message_at=last_message_at,
-                last_message_sender=last_message_sender,
-                last_message_id=last_message_id,
-                delivery_status=delivery_status,
+                last_message=last_message,
                 unread_count=user_chat.messages.filter(is_read=False).exclude(sender=user).count(),
             )
         )
@@ -79,6 +75,7 @@ def get_chat_messages(request, chat_id: int):
             created_at=message.created_at.isoformat(),
             delivery_status=message.delivery_status(user.id),
             is_read=message.is_read,
+            signal_type=message.signal_message.signal_type,
         )
 
         for message in messages

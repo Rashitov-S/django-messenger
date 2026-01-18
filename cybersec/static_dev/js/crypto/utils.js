@@ -8,7 +8,6 @@ export function toBase64(buffer) {
 }
 
 export function fromBase64(base64) {
-    console.log("из бейза", base64);
 
     base64 = base64.replace(/\s/g, '');
 

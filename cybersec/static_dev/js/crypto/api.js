@@ -38,7 +38,6 @@ export async function fetchPreKeyBundle(userId) {
 }
 
 export function buildPreKeyBundlePayload(data) {
-    console.log(data)
     if (!data || !data.identity_key) {
         throw new Error('Missing identity_key in pre-key bundle');
     }

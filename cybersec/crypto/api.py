@@ -149,7 +149,7 @@ def get_user_keys(request, user_id: int):
 
         if crypto.models.SignalPreKeyRequest.objects.filter(
                 sender=sender, receiver=receiver
-        ).count() > 100:
+        ).count() > 3:
             return {"error": "Prekey already issued for this user"}
 
         try:

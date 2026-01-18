@@ -2,9 +2,10 @@ export async function generateAndStoreOneTimePreKeys(count, signalStore) {
 
     const preKeys = [];
     for (let i = 1; i <= count; i++) {
-        const keyPair_id = await libsignal.KeyHelper.generatePreKey(Math.floor(Math.random() * 2 ** 31));
+        const id = Math.floor(Math.random() * 2 ** 31);
+        const keyPair_id = await libsignal.KeyHelper.generatePreKey(id);
         preKeys.push(keyPair_id);
-        await signalStore.storePreKey(i, keyPair_id);
+        await signalStore.storePreKey(id, keyPair_id.keyPair);
     }
     return preKeys;
 }

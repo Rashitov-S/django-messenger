@@ -10,8 +10,9 @@ import {
 } from "./state.js";
 import {sendWS} from "./chat_socket.js";
 import {decrementUnread, getChatElement, updateChatPreview} from "./chat_list.js";
-import {ensureSession} from "./crypto/session.js";
-import {encryptMessage} from "./crypto/messages.js";
+import {ensureSession, hasSession} from "./crypto/session.js";
+import {decryptMessage, encryptMessage} from "./crypto/messages.js";
+import {signalStore} from "./crypto/signalStore.js";
 
 
 const textarea = document.getElementById("message-input");
@@ -108,8 +109,6 @@ export async function sendMessage() {
     payload.signal_type = encrypted.type;
 
     sendWS(payload);
-    console.log("ааа", payload);
-    console.log("ааа", encrypted);
 
 
     const tempMessage = {
@@ -126,6 +125,7 @@ export async function sendMessage() {
     };
 
     appendMessageToChat(chat_id, tempMessage);
+    await signalStore.saveLocalMessage(tempMessage)
     if (chat_id) updateChatPreview(chat_id, tempMessage);
 
     textarea.value = "";
@@ -138,7 +138,6 @@ export function replacePendingMessage(chat_id, newMsg) {
     let selectedChatEl = getSelectedChatEl();
 
     const messageId = newMsg.client_id;
-    console.log("replacePendingMessage", messageId);
     if (!messageId) {
         console.warn("Message has no id or client_id, appending instead");
         appendMessageToChat(chat_id, newMsg);
@@ -148,8 +147,8 @@ export function replacePendingMessage(chat_id, newMsg) {
     const pendingEl = selectedChatEl.querySelector(`[data-message-id="${messageId}"]`);
 
     if (pendingEl) {
-         const textContainer = pendingEl.querySelector(".p-2 > div");
-         newMsg.plaintext = textContainer?.textContent || "";
+        const textContainer = pendingEl.querySelector(".p-2 > div");
+        newMsg.plaintext = textContainer?.textContent || "";
 
         const newEl = createMessageElement(newMsg);
         pendingEl.replaceWith(newEl);
@@ -163,8 +162,22 @@ export function appendMessageToChat(chat_id, msg) {
     let selectedChatEl = getSelectedChatEl();
     if (chat_id !== getSelectedChat()) return;
 
+    const shouldAutoScroll = isScrolledToBottom(selectedChatEl);
+
     const messageEl = createMessageElement(msg);
     selectedChatEl.appendChild(messageEl);
+
+    if (shouldAutoScroll) {
+        scrollChat(selectedChatEl);
+    }
+
+}
+
+function isScrolledToBottom(container, threshold = 30) {
+    return (
+        container.scrollHeight - container.scrollTop - container.clientHeight
+        <= threshold
+    );
 }
 
 export function scrollChat(selectedChatEl) {
@@ -223,23 +236,43 @@ export function initSelectedChatElements(chat) {
     document.getElementById("chat-input").classList.remove("d-none");
 }
 
-function renderMessages(messages) {
+async function renderMessages(messages) {
     let selectedChatEl = getSelectedChatEl();
     if (!Array.isArray(messages)) {
         console.error("messages is not an array:", messages);
         return;
     }
 
-    messages.forEach(msg => {
+    for (const msg of messages) {
+        try {
+            if (msg.sender.id !== CURRENT_USER_ID) {
+
+                const withSession = await hasSession(msg.sender.id);
+                if (!withSession) {
+                    console.log(`No session for ${msg.sender.id}, skipping message`);
+                    msg.plaintext = "[Сессия не установлена]";
+                    continue;
+                }
+
+                msg.plaintext = await decryptMessage(msg);
+            }
+            else {
+                const local = await signalStore.loadLocalMessage(msg);
+                msg.plaintext = local.plaintext;
+            }
+        } catch (e) {
+            console.error("Ошибка дешифровки сообщения", e);
+            msg.plaintext = "[Не удалось расшифровать]";
+        }
+
         const messageEl = createMessageElement(msg);
         selectedChatEl.appendChild(messageEl);
-    });
+    }
 
     selectedChatEl.scrollTop = selectedChatEl.scrollHeight;
 }
 
 function createMessageElement(msg) {
-    console.log(msg);
     const div = document.createElement("div");
     div.className = "message d-flex mb-2";
     div.dataset.messageId = msg.id || msg.client_id;

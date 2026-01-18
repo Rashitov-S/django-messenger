@@ -69,7 +69,8 @@ export async function openPrivateChat(user) {
     const existingChat = findPrivateChatWithUser(user.id);
 
     if (existingChat) {
-        console.log("Открываю существующий чат:", existingChat.id);
+        const input = document.getElementById("user-search-input");
+         input.value = "";
         await openChat(existingChat.id);
         return;
     }

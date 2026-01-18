@@ -35083,6 +35083,7 @@ Curve25519Worker.prototype = {
 
     function validatePrivKey(privKey) {
         if (privKey === undefined || !(privKey instanceof ArrayBuffer) || privKey.byteLength != 32) {
+            console.log(privKey)
             throw new Error("Invalid private key");
         }
     }
@@ -35259,6 +35260,7 @@ var Internal = Internal || {};
             return Internal.Curve.async.createKeyPair(privKey);
         },
         ECDHE: function(pubKey, privKey) {
+            console.log("ECDHE", privKey)
             return Internal.Curve.async.ECDHE(pubKey, privKey);
         },
         Ed25519Sign: function(privKey, message) {
@@ -35944,6 +35946,7 @@ SessionBuilder.prototype = {
             sharedSecret.set(new Uint8Array(ecRes[2]), 32 * 3);
 
             if (ourEphemeralKey !== undefined && theirEphemeralPubKey !== undefined) {
+                console.log("Internal.crypto", theirEphemeralPubKey, ourEphemeralKey, ourEphemeralKey.privKey)
                 return Internal.crypto.ECDHE(
                     theirEphemeralPubKey, ourEphemeralKey.privKey
                 ).then(function(ecRes4) {
@@ -36260,6 +36263,8 @@ SessionCipher.prototype = {
 
         return this.fillMessageKeys(chain, message.counter).then(function() {
             var messageKey = chain.messageKeys[message.counter];
+            console.log(chain)
+            console.log(message.counter)
             if (messageKey === undefined) {
                 var e = new Error("Message key not found. The counter was repeated or the key was not filled.");
                 e.name = 'MessageCounterError';
